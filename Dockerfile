@@ -11,7 +11,7 @@ RUN npm run gulp
 FROM composer:2 AS composer
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts
+RUN composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts --ignore-platform-reqs
 
 # ─── Production ───────────────────────────────────────────────────────────────
 FROM bkuhl/fpm-nginx:7.3 AS production
