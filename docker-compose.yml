@@ -1,18 +1,16 @@
 services:
   webhook:
     container_name: "webhook-site"
-    image: "webhooksite/webhook.site"
+    image: "ghcr.io/smart-layer/webhook.site:latest"
     # Enable build for development:
     # build:
     #   dockerfile: Dockerfile
     #   context: ./
     command: php artisan queue:work --daemon --tries=3 --timeout=10
-    ports:
-      - "8084:80"
     environment:
-      - APP_ENV=dev
-      - APP_DEBUG=true
-      - APP_URL=http://localhost:8084
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=https://webhook-site.smartlayer.dev
       - APP_LOG=errorlog
       - DB_CONNECTION=sqlite
       - REDIS_HOST=redis
@@ -22,6 +20,15 @@ services:
       - ECHO_HOST_MODE=path
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webhook-site.rule=Host(`webhook-site.smartlayer.dev`)"
+      - "traefik.http.routers.webhook-site.entrypoints=websecure"
+      - "traefik.http.routers.webhook-site.tls.certresolver=letsencrypt"
+      - "traefik.http.services.webhook-site.loadbalancer.server.port=80"
+    networks:
+      - traefik-public
+      - default
 
   redis:
     container_name: "webhook-redis"
@@ -46,3 +53,7 @@ services:
       - ECHO_ALLOW_ORIGIN=*
       - ECHO_ALLOW_METHODS=*
       - ECHO_ALLOW_HEADERS=*
+
+networks:
+  traefik-public:
+    external: true
