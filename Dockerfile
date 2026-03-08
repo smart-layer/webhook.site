@@ -1,51 +1,42 @@
-##############################################
-# Stage 1: Install node dependencies and run gulp
-##############################################
-
-FROM node:18 AS npm
+# ─── Assets ───────────────────────────────────────────────────────────────────
+FROM node:18-alpine AS npm
 WORKDIR /app
-
-COPY package.json /app
-COPY package-lock.json /app
-RUN npm install
-
-COPY resources /app/resources
-COPY gulpfile.js /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY resources ./resources
+COPY gulpfile.js ./
 RUN npm run gulp
 
-##############################################
-# Stage 2: Composer, nginx and fpm
-##############################################
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+FROM composer:2 AS composer
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts
 
-FROM bkuhl/fpm-nginx:7.3
+# ─── Production ───────────────────────────────────────────────────────────────
+FROM bkuhl/fpm-nginx:7.3 AS production
 WORKDIR /var/www/html
 
-# Contains laravel echo server proxy configuration
-COPY /nginx.conf /etc/nginx/conf.d
+COPY nginx.conf /etc/nginx/conf.d/
+
+COPY --from=composer /usr/bin/composer /usr/bin/composer
+COPY --from=composer --chown=www-data:www-data /app/vendor ./vendor
+
+COPY --chown=www-data:www-data app ./app
+COPY --chown=www-data:www-data bootstrap ./bootstrap
+COPY --chown=www-data:www-data config ./config
+COPY --chown=www-data:www-data database ./database
+COPY --chown=www-data:www-data public ./public
+COPY --chown=www-data:www-data resources ./resources
+COPY --chown=www-data:www-data storage ./storage
+COPY --chown=www-data:www-data artisan composer.json composer.lock ./
+
+COPY --from=npm --chown=www-data:www-data /app/public/css ./public/css
+COPY --from=npm --chown=www-data:www-data /app/public/js ./public/js
 
 USER www-data
-
-ADD --chown=www-data:www-data /composer.json /var/www/html
-ADD --chown=www-data:www-data /composer.lock /var/www/html
-
-RUN composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts \
-    && rm -rf /home/www-data/.composer/cache
-
-ADD --chown=www-data:www-data /storage /var/www/html/storage
-ADD --chown=www-data:www-data /bootstrap /var/www/html/bootstrap
-ADD --chown=www-data:www-data /public /var/www/html/public
-ADD --chown=www-data:www-data /artisan /var/www/html
-ADD --chown=www-data:www-data /database /var/www/html/database
-ADD --chown=www-data:www-data /config /var/www/html/config
-ADD --chown=www-data:www-data /app /var/www/html/app
-
 RUN composer dump-autoload --optimize --no-dev \
-    && touch /var/www/html/database/database.sqlite \
+    && touch database/database.sqlite \
     && php artisan optimize \
     && php artisan migrate
-
-ADD --chown=www-data:www-data /resources /var/www/html/resources
-COPY --chown=www-data:www-data --from=npm /app/public/css /var/www/html/public/css
-COPY --chown=www-data:www-data --from=npm /app/public/js /var/www/html/public/js
-
 USER root
