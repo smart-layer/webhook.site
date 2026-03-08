@@ -2,7 +2,7 @@
 # Stage 1: Install node dependencies and run gulp
 ##############################################
 
-FROM node:11 as npm
+FROM node:18 AS npm
 WORKDIR /app
 
 COPY package.json /app
@@ -28,8 +28,7 @@ USER www-data
 ADD --chown=www-data:www-data /composer.json /var/www/html
 ADD --chown=www-data:www-data /composer.lock /var/www/html
 
-RUN composer global require hirak/prestissimo \
-    && composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts \
+RUN composer install --no-interaction --no-autoloader --no-dev --prefer-dist --no-scripts \
     && rm -rf /home/www-data/.composer/cache
 
 ADD --chown=www-data:www-data /storage /var/www/html/storage
