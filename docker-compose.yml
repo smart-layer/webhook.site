@@ -22,10 +22,18 @@ services:
       - redis
     labels:
       - "traefik.enable=true"
+      # HTTPS router
       - "traefik.http.routers.webhook-site.rule=Host(`webhook-site.smartlayer.dev`)"
       - "traefik.http.routers.webhook-site.entrypoints=websecure"
       - "traefik.http.routers.webhook-site.tls.certresolver=letsencrypt"
       - "traefik.http.services.webhook-site.loadbalancer.server.port=80"
+      # HTTP router (required for ACME HTTP-01 challenge)
+      - "traefik.http.routers.webhook-site-http.rule=Host(`webhook-site.smartlayer.dev`)"
+      - "traefik.http.routers.webhook-site-http.entrypoints=web"
+      - "traefik.http.routers.webhook-site-http.middlewares=redirect-to-https"
+      # Redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
     networks:
       - traefik-public
       - default
